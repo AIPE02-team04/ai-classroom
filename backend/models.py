@@ -214,9 +214,21 @@ class FeedbackReport(Base):
         ForeignKey("sessions.id"), nullable=False, unique=True
     )
     sel_scores: Mapped[dict] = mapped_column(JSON, nullable=False)
-    feedback_text: Mapped[str] = mapped_column(Text, nullable=False)
-    analysis_text: Mapped[str] = mapped_column(Text, nullable=False)
-    selected_kist_cards: Mapped[list] = mapped_column(JSON, nullable=False)
+    highlights: Mapped[str] = mapped_column(Text, nullable=False)       # 對話亮點
+    blind_spots: Mapped[str] = mapped_column(Text, nullable=False)      # 盲點發現
+    action_tips: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 行動建議
+    selected_kist_cards: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # === 初稿（Coach 第一次輸出）===
+    draft_highlights: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_blind_spots: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_action_tips: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_sel_scores: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # === Critic Agent 輸出 ===
+    critic_passed: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    critic_critique: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    critic_revision_instructions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     session: Mapped["Session"] = relationship("Session", back_populates="feedback_report")
