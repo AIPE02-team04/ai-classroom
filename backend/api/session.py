@@ -208,20 +208,24 @@ async def end_session(
         print(f"[Critic Agent Error] {e} — fallback 使用初稿")
 
     # 7. 儲存 FeedbackReport（初稿 + Critic 輸出 + 最終版）
-    await db_manager.create_feedback_report(
-        session_id=session.id,
-        sel_scores=report_data.get("sel_scores", {}),
-        highlights=report_data.get("highlights", ""),
-        blind_spots=report_data.get("blind_spots", ""),
-        action_tips=report_data.get("action_tips"),
-        draft_highlights=draft_data.get("highlights"),
-        draft_blind_spots=draft_data.get("blind_spots"),
-        draft_action_tips=draft_data.get("action_tips"),
-        draft_sel_scores=draft_data.get("sel_scores"),
-        critic_passed=critic_passed_val,
-        critic_critique=critic_critique_val,
-        critic_revision_instructions=critic_revision_val,
-    )
+    try:
+        await db_manager.create_feedback_report(
+            session_id=session.id,
+            sel_scores=report_data.get("sel_scores", {}),
+            highlights=report_data.get("highlights", ""),
+            blind_spots=report_data.get("blind_spots", ""),
+            action_tips=report_data.get("action_tips"),
+            draft_highlights=draft_data.get("highlights"),
+            draft_blind_spots=draft_data.get("blind_spots"),
+            draft_action_tips=draft_data.get("action_tips"),
+            draft_sel_scores=draft_data.get("sel_scores"),
+            critic_passed=critic_passed_val,
+            critic_critique=critic_critique_val,
+            critic_revision_instructions=critic_revision_val,
+        )
+    except Exception as e:
+        print(f"[FeedbackReport DB Error] {e}")
+        return {"status": "ended", "report_ready": False, "message": f"報告儲存失敗：{e}"}
 
     return {"status": "ended", "report_ready": True}
 
