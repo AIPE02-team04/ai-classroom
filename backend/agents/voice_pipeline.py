@@ -150,9 +150,13 @@ class OpenAIRealtimeClient:
 
                     result = ""
                     if function_name == "semantic_analysis":
-                        result = await self.pipeline.exec_semantic_analysis(
-                            arguments.get("teacher_input", "")
-                        )
+                        try:
+                            result = await self.pipeline.exec_semantic_analysis(
+                                arguments.get("teacher_input", "")
+                            )
+                        except Exception as sa_err:
+                            print(f"[OpenAI] ⚠️ semantic_analysis error: {sa_err}, using fallback emotions")
+                            result = json.dumps(self.pipeline.last_emotion_scores or {})
 
                     await self.send_event({
                         "type": "conversation.item.create",
@@ -207,42 +211,49 @@ class StudentVoicePipeline:
         room_name = self.room.name
         print(f"[Pipeline] Loading prompt for room: {room_name!r}")
 
-        try:
-            async with async_session_maker() as db:
-                result = await db.execute(
-                    select(Session).where(Session.livekit_room_name == room_name)
-                )
-                session = result.scalar_one_or_none()
+        for attempt in range(3):
+            try:
+                async with async_session_maker() as db:
+                    result = await db.execute(
+                        select(Session).where(Session.livekit_room_name == room_name)
+                    )
+                    session = result.scalar_one_or_none()
 
-                if not session:
-                    print(f"[Pipeline] WARNING: Session not found for room: {room_name!r}")
-                    return "請務必使用繁體中文（台灣用語）。你是一位國中一年級的學生，與老師進行 SEL 對話練習，請自然地回應老師。"
+                    if not session:
+                        if attempt < 2:
+                            print(f"[Pipeline] Session not found, retrying in 1s... (attempt {attempt+1})")
+                            await asyncio.sleep(1)
+                            continue
+                        print(f"[Pipeline] WARNING: Session not found for room: {room_name!r}")
+                        break
 
-                self.db_session_id = session.id
-                
-                # ... (省略中間的 scenario/personality 讀取邏輯以節省空間，保持與原版一致)
-                scenario = None
-                if session.scenario_id:
-                    r = await db.execute(select(Scenario).where(Scenario.id == session.scenario_id))
-                    scenario = r.scalar_one_or_none()
+                    self.db_session_id = session.id
 
-                personality = None
-                if session.personality_id:
-                    r = await db.execute(select(StudentPersonality).where(StudentPersonality.id == session.personality_id))
-                    personality = r.scalar_one_or_none()
+                    scenario = None
+                    if session.scenario_id:
+                        r = await db.execute(select(Scenario).where(Scenario.id == session.scenario_id))
+                        scenario = r.scalar_one_or_none()
 
-                if scenario and personality:
-                    self.scenario_title = scenario.title
-                    self.last_emotion_scores = scenario.initial_emotions or {
-                        "HAPPY": 0.10, "SAD": 0.20, "ANGRY": 0.05, "SURPRISED": 0.05,
-                        "ANXIOUS": 0.30, "FRUSTRATED": 0.15, "CONFIDENT": 0.10,
-                        "CURIOUS": 0.15, "NEUTRAL": 0.40,
-                    }
-                    return build_student_prompt(scenario, personality)
+                    personality = None
+                    if session.personality_id:
+                        r = await db.execute(select(StudentPersonality).where(StudentPersonality.id == session.personality_id))
+                        personality = r.scalar_one_or_none()
 
-        except Exception as e:
-            print(f"[Pipeline] DB error: {e}")
-        
+                    if scenario and personality:
+                        self.scenario_title = scenario.title
+                        self.last_emotion_scores = scenario.initial_emotions or {
+                            "HAPPY": 0.10, "SAD": 0.20, "ANGRY": 0.05, "SURPRISED": 0.05,
+                            "ANXIOUS": 0.30, "FRUSTRATED": 0.15, "CONFIDENT": 0.10,
+                            "CURIOUS": 0.15, "NEUTRAL": 0.40,
+                        }
+                        return build_student_prompt(scenario, personality)
+
+                    break
+
+            except Exception as e:
+                print(f"[Pipeline] DB error: {e}")
+                break
+
         return "請務必使用繁體中文（台灣用語）。你是一位國中一年級的學生，與老師進行 SEL 對話練習。"
 
     async def start(self):
