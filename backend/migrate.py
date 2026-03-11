@@ -22,6 +22,12 @@ MIGRATIONS = [
     "ALTER TABLE feedback_reports ADD COLUMN IF NOT EXISTS critic_passed BOOLEAN",
     "ALTER TABLE feedback_reports ADD COLUMN IF NOT EXISTS critic_critique TEXT",
     "ALTER TABLE feedback_reports ADD COLUMN IF NOT EXISTS critic_revision_instructions TEXT",
+    # 學生個性新增欄位
+    "ALTER TABLE student_personalities ADD COLUMN IF NOT EXISTS domain_weights JSONB",
+    "ALTER TABLE student_personalities ADD COLUMN IF NOT EXISTS personality_tags VARCHAR(100)",
+    # 情境新增欄位
+    "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS short_desc VARCHAR(200)",
+    "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS tags JSONB",
 ]
 
 
