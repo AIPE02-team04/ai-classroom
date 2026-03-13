@@ -30,6 +30,9 @@ MIGRATIONS = [
     "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS tags JSONB",
     # 學生個性新增短描述
     "ALTER TABLE student_personalities ADD COLUMN IF NOT EXISTS short_desc TEXT",
+    # 用戶自訂情境
+    "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE",
+    "CREATE INDEX IF NOT EXISTS idx_scenarios_created_by_user_id ON scenarios(created_by_user_id)",
     # 年級表
     """CREATE TABLE IF NOT EXISTS grade_levels (
         id VARCHAR(30) PRIMARY KEY,

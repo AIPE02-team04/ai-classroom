@@ -52,8 +52,13 @@ class Scenario(Base):
     # 短說明，供前端新頁面顯示
     tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     # 情境標籤，適合本情境的個性類型清單
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # null = 系統預設情境；有值 = 用戶自訂情境
 
     sessions: Mapped[list["Session"]] = relationship("Session", back_populates="scenario")
+    created_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by_user_id])
 
 
 class StudentPersonality(Base):
