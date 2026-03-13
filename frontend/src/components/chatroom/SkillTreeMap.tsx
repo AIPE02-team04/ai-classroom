@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
-import { Sparkles, LayoutGrid, List, Search, Clock, Users } from "lucide-react";
+import { Sparkles, LayoutGrid, List, Search, Clock, Users, Plus, Pencil } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { CompetencyGroup, Scenario } from "@/lib/collectionData";
+import CustomScenarioModal from "./CustomScenarioModal";
 
 interface SkillTreeMapProps {
   groups: CompetencyGroup[];
   onSelectScenario: (id: number) => void;
   onOpenSoulCards: () => void;
+  customScenarios: Scenario[];
+  onCustomScenariosChange: (updated: Scenario[]) => void;
 }
 
 const COMPETENCY_COLORS = [
@@ -18,20 +21,34 @@ const COMPETENCY_COLORS = [
   "hsl(200, 40%, 65%)",
   "hsl(340, 40%, 65%)",
 ];
+const CUSTOM_COLOR = "hsl(262, 52%, 62%)";
 
 type ViewMode = "grid" | "list";
 
-export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards }: SkillTreeMapProps) {
+export default function SkillTreeMap({
+  groups,
+  onSelectScenario,
+  onOpenSoulCards,
+  customScenarios,
+  onCustomScenariosChange,
+}: SkillTreeMapProps) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
 
-  const allScenarios = useMemo(() => groups.flatMap((g) => g.scenarios), [groups]);
+  const allSystemScenarios = useMemo(() => groups.flatMap((g) => g.scenarios), [groups]);
 
   const filteredScenarios = useMemo(() => {
-    let list = activeFilter
-      ? groups.find((g) => g.id === activeFilter)?.scenarios ?? []
-      : allScenarios;
+    let list: Scenario[];
+    if (activeFilter === "__custom__") {
+      list = customScenarios;
+    } else if (activeFilter) {
+      list = groups.find((g) => g.id === activeFilter)?.scenarios ?? [];
+    } else {
+      list = [...allSystemScenarios, ...customScenarios];
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -43,18 +60,38 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
       );
     }
     return list;
-  }, [activeFilter, searchQuery, groups, allScenarios]);
+  }, [activeFilter, searchQuery, groups, allSystemScenarios, customScenarios]);
 
   const getGroupColor = (scenario: Scenario) => {
+    if (scenario.is_custom) return CUSTOM_COLOR;
     const idx = groups.findIndex((g) => g.scenarios.some((s) => s.id === scenario.id));
-    return COMPETENCY_COLORS[idx % COMPETENCY_COLORS.length];
+    return idx >= 0 ? COMPETENCY_COLORS[idx % COMPETENCY_COLORS.length] : COMPETENCY_COLORS[0];
+  };
+
+  const handleCreated = (scenario: Scenario) => {
+    const exists = customScenarios.some((s) => s.id === scenario.id);
+    if (exists) {
+      onCustomScenariosChange(customScenarios.map((s) => (s.id === scenario.id ? scenario : s)));
+    } else {
+      onCustomScenariosChange([...customScenarios, scenario]);
+    }
+    onSelectScenario(scenario.id);
+  };
+
+  const handleDeleted = (id: number) => {
+    onCustomScenariosChange(customScenarios.filter((s) => s.id !== id));
+  };
+
+  const openEdit = (e: React.MouseEvent, scenario: Scenario) => {
+    e.stopPropagation();
+    setEditingScenario(scenario);
   };
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Toolbar */}
       <div className="shrink-0 px-6 pt-5 pb-3 flex flex-col gap-3">
-        {/* Row 1: Search + view toggle + soul cards */}
+        {/* Row 1: Search + view toggle + buttons */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -70,25 +107,36 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
           <div className="flex items-center gap-0.5 bg-muted rounded-xl p-1">
             <button
               onClick={() => setViewMode("grid")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "grid"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "grid"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-background/60"
-                }`}
+              }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">卡片</span>
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "list"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "list"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-background/60"
-                }`}
+              }`}
             >
               <List className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">列表</span>
             </button>
           </div>
+
+          {/* Create custom scenario button */}
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-[hsl(262,52%,62%)] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 group"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-xs font-bold tracking-wide hidden sm:inline">自訂情境</span>
+          </button>
 
           {/* Soul Cards button */}
           <button
@@ -105,10 +153,11 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveFilter(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${!activeFilter
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
+              !activeFilter
                 ? "bg-foreground text-background shadow-md"
                 : "border border-border text-muted-foreground hover:bg-muted"
-              }`}
+            }`}
           >
             全部
           </button>
@@ -116,10 +165,11 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
             <button
               key={group.id}
               onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${activeFilter === group.id
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                activeFilter === group.id
                   ? "text-card shadow-md"
                   : "border border-border text-muted-foreground hover:bg-muted"
-                }`}
+              }`}
               style={
                 activeFilter === group.id
                   ? { backgroundColor: COMPETENCY_COLORS[idx % COMPETENCY_COLORS.length] }
@@ -130,13 +180,25 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
               {group.label}
             </button>
           ))}
+          {customScenarios.length > 0 && (
+            <button
+              onClick={() => setActiveFilter(activeFilter === "__custom__" ? null : "__custom__")}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                activeFilter === "__custom__"
+                  ? "text-white shadow-md"
+                  : "border border-border text-muted-foreground hover:bg-muted"
+              }`}
+              style={activeFilter === "__custom__" ? { backgroundColor: CUSTOM_COLOR } : undefined}
+            >
+              ✏️ 我的情境
+            </button>
+          )}
           <span className="text-[11px] text-muted-foreground ml-auto">
             共 {filteredScenarios.length} 個情境
           </span>
         </div>
 
-        {/* Active group description */}
-        {activeFilter && (
+        {activeFilter && activeFilter !== "__custom__" && (
           <p className="text-xs text-muted-foreground font-medium animate-in fade-in duration-300">
             {groups.find((g) => g.id === activeFilter)?.description}
           </p>
@@ -146,7 +208,6 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
       {/* Content area */}
       <ScrollArea className="flex-1 px-6 pb-6">
         {viewMode === "grid" ? (
-          /* ── Grid View ── */
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pt-1">
             {filteredScenarios.map((scenario, idx) => {
               const groupColor = getGroupColor(scenario);
@@ -161,6 +222,15 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
                     className="absolute top-0 left-4 right-4 h-1 rounded-b-full opacity-60 group-hover:opacity-100 transition-opacity"
                     style={{ backgroundColor: groupColor }}
                   />
+                  {scenario.is_custom && (
+                    <button
+                      onClick={(e) => openEdit(e, scenario)}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-muted flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-border"
+                      title="編輯情境"
+                    >
+                      <Pencil className="w-3 h-3 text-muted-foreground" />
+                    </button>
+                  )}
                   <span className="text-4xl mt-2 group-hover:scale-110 transition-transform duration-300">
                     {scenario.emoji}
                   </span>
@@ -170,18 +240,24 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
                   <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
                     {scenario.description}
                   </p>
-                  <span
-                    className="text-[10px] px-2.5 py-1 rounded-full font-medium"
-                    style={{ backgroundColor: `${groupColor}15`, color: groupColor }}
-                  >
-                    {scenario.tag}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                    <span
+                      className="text-[10px] px-2.5 py-1 rounded-full font-medium"
+                      style={{ backgroundColor: `${groupColor}15`, color: groupColor }}
+                    >
+                      {scenario.tag}
+                    </span>
+                    {scenario.is_custom && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-300 text-purple-500">
+                        自訂
+                      </Badge>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
         ) : (
-          /* ── List View ── */
           <div className="flex flex-col gap-3 pt-1">
             {filteredScenarios.map((scenario, idx) => {
               const groupColor = getGroupColor(scenario);
@@ -200,9 +276,16 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
                   </div>
 
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                    <h4 className="font-heading text-sm font-bold text-foreground truncate">
-                      {scenario.title}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-heading text-sm font-bold text-foreground truncate">
+                        {scenario.title}
+                      </h4>
+                      {scenario.is_custom && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-300 text-purple-500 shrink-0">
+                          自訂
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                       {scenario.description}
                     </p>
@@ -224,9 +307,20 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
                     </div>
                   </div>
 
-                  <svg className="shrink-0 w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all mt-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
+                  <div className="flex items-center gap-2 mt-1">
+                    {scenario.is_custom && (
+                      <button
+                        onClick={(e) => openEdit(e, scenario)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+                        title="編輯情境"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <svg className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </div>
                 </button>
               );
             })}
@@ -237,10 +331,33 @@ export default function SkillTreeMap({ groups, onSelectScenario, onOpenSoulCards
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
             <Search className="w-8 h-8 opacity-40" />
             <p className="text-sm font-medium">找不到符合條件的情境</p>
-            <p className="text-xs">請調整搜尋或篩選條件</p>
+            {activeFilter === "__custom__" ? (
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="mt-2 text-xs text-purple-500 hover:underline font-medium"
+              >
+                + 建立第一個自訂情境
+              </button>
+            ) : (
+              <p className="text-xs">請調整搜尋或篩選條件</p>
+            )}
           </div>
         )}
       </ScrollArea>
+
+      {/* Modals */}
+      <CustomScenarioModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={handleCreated}
+      />
+      <CustomScenarioModal
+        open={!!editingScenario}
+        onClose={() => setEditingScenario(null)}
+        onCreated={handleCreated}
+        editScenario={editingScenario}
+        onDeleted={handleDeleted}
+      />
 
       <style>{`
         @keyframes cardFadeIn {

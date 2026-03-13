@@ -30,6 +30,7 @@ export default function Chatroom() {
   const { setSessionUuid } = useAuthStore();
 
   const [allScenarios, setAllScenarios] = useState<Scenario[]>([]);
+  const [customScenarios, setCustomScenarios] = useState<Scenario[]>([]);
   const [competencyGroups, setCompetencyGroups] = useState<CompetencyGroup[]>([]);
   const [allPersonalities, setAllPersonalities] = useState<any[]>([]);
   const [allGradeLevels, setAllGradeLevels] = useState<any[]>([]);
@@ -76,9 +77,13 @@ export default function Chatroom() {
         tags: s.tags ?? [],
         practice_count: s.practice_count ?? 0,
         estimated_minutes: s.estimated_minutes ?? 10,
+        is_custom: s.is_custom ?? false,
       }));
+      const systemScenarios = data.filter((s) => !s.is_custom);
+      const userCustom = data.filter((s) => s.is_custom);
       setAllScenarios(data);
-      setCompetencyGroups(buildCompetencyGroups(data));
+      setCustomScenarios(userCustom);
+      setCompetencyGroups(buildCompetencyGroups(systemScenarios));
     }).catch(() => {});
 
     api.get("/personalities").then((res) => {
@@ -369,6 +374,14 @@ export default function Chatroom() {
               groups={competencyGroups}
               onSelectScenario={handleCardClick}
               onOpenSoulCards={() => setSoulCardsOpen(true)}
+              customScenarios={customScenarios}
+              onCustomScenariosChange={(updated) => {
+                setCustomScenarios(updated);
+                setAllScenarios((prev) => [
+                  ...prev.filter((s) => !s.is_custom),
+                  ...updated,
+                ]);
+              }}
             />
           )}
 

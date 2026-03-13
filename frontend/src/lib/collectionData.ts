@@ -9,6 +9,7 @@ export interface Scenario {
   practice_count?: number;
   estimated_minutes?: number;
   guideSentence?: string;
+  is_custom?: boolean;
 }
 
 export interface CompetencyGroup {
